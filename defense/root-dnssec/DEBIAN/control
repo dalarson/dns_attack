@@ -1,0 +1,8 @@
+Package: root-dns-dnssec
+Version: 1.0-1
+Priority: optional
+Architecture: all
+Maintainer: @ben
+Depends: knot (= 2.1.1-1build1)
+Breaks: root-dns-setup (= 1.0-1)
+Description: DNSSEC implementation for the root server

@@ -1,0 +1,25 @@
+{
+  "policy": "rsa",
+  "keys": [
+    {
+      "id": "3de38db168bb60b0f833340af922234b56653021",
+      "keytag": 17164,
+      "algorithm": 8,
+      "public_key": "AwEAAZbQcik8qpSKQRAbz42ZmAj0Ct/e7wiE4z8BRUNuyYqw6N7kuIqvog1JHAErV5Z01H5KcpUh+rx6be3mawBWDyRQqPc0poZ0rX2QB0l1/Xfp/qI9DXYIC/cN07wQmjNBscluFN+gm7yEuuoGlfdfRCB7e0gCyz3mfCjMQ3lk+meuTTPHIfBXFNxYZblz542z63Rl6Mz9EiOratEvamiUoFSdVVltocX0/hAFwHu2lh07359fSsoyzQcnm8unBLKukm7aaD22dmrY/bEp2baCE2kzOdiIiSsPRyO7rSO0EEwx8PjQOClGKJ7FXWrVO0GIflml0hETFPaPO0Acz8rzYJs=",
+      "ksk": true,
+      "created": "2019-11-19T03:35:54+0000",
+      "publish": "2019-11-19T03:35:54+0000",
+      "active": "2019-11-19T03:35:54+0000"
+    },
+    {
+      "id": "27c55aeeaa6d75d8c033b116d53cd80027052b1f",
+      "keytag": 5308,
+      "algorithm": 8,
+      "public_key": "AwEAAbODrXe/9tiWkwSnlvQ8pSkuZYWD4t8Cvpq00ssAZ7huqw7ZBqMCPB1ka3r66jdGekOW/2iJhZxv3oM4JDsmdTL4BNeGw2lcmwPqyHw6dU1mmjow+5eRGK/6ABNz99O/Gv59zRYG0PoFVx/bkzXO+6hZ8dQXNFLB/VncWqF7X9SP",
+      "ksk": false,
+      "created": "2019-11-19T03:35:54+0000",
+      "publish": "2019-11-19T03:35:54+0000",
+      "active": "2019-11-19T03:35:54+0000"
+    }
+  ]
+}

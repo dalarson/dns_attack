@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+if [ "$#" -eq 0 ]; then
+  HOSTS=(1 2 3 4 5 6)
+
+  echo "Verifying passwordless ssh for root@10.4.9.[1-6]"
+else
+  HOSTS=( "$@" )
+  echo "Verifying passwordless ssh for root@10.4.9.{$(IFS=, ; echo "${HOSTS[*]}")}"
+fi
+
+
+for i in "${HOSTS[@]}"; do
+    ssh -o ConnectTimeout=5 -o PasswordAuthentication=no -o BatchMode=yes root@"10.4.9.$i" exit &>/dev/null &
+    pids[${i}]=$!
+done
+
+bad_hosts=()
+for i in "${!pids[@]}"; do 
+    if wait ${pids[$i]} ; then
+        echo "$(tput setaf 2)host $i good$(tput sgr0)"
+    else
+        bad_hosts+=( "$i" )
+    fi
+done
+
+if [ ! ${#bad_hosts[@]} -eq 0 ]; then
+    echo "$(tput setaf 1)unreachable hosts: $(IFS=, ; echo "${bad_hosts[*]}")$(tput sgr0)"
+    exit ${#bad_hosts[@]}
+fi

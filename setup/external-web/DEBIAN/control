@@ -1,0 +1,6 @@
+Package: external-web-server-setup
+Version: 1.0-1
+Priority: optional
+Architecture: all
+Maintainer: @ben
+Description: The external web server of the competing isp

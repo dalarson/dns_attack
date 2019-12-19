@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euxo pipefail 
+
+echo 0 | tee /proc/sys/net/ipv4/conf/*/send_redirects
+echo 0 | tee /proc/sys/net/ipv4/conf/*/accept_redirects
+
+dpkg-divert --divert /etc/bind/named.conf.local.original --rename /etc/bind/named.conf.local
+dpkg-divert --divert /etc/bind/db.root.original --rename /etc/bind/db.root
+
+sysctl -w net.ipv4.ip_forward=1

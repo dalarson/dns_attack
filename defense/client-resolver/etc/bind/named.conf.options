@@ -1,0 +1,11 @@
+options {
+    directory "/var/cache/bind";
+    dnssec-validation true;
+    auth-nxdomain no;    # conform to RFC1035
+    version "not currently available";
+    allow-recursion { 127.0.0.1; };
+};
+
+managed-keys {
+    "." initial-key 257 3 8 "AwEAAZzXszNlsZU3XRWNXvfbIlGvfhuMMfgxIB5JfK7ZdmZyIyjTIejE rYPmOn+CAIxpnIz2CGmQ7eN1lPkoCCNUlaWZTuwBEhiTELu4z986ptbe a92g5zMqwEMOhK7DRTiMAPQUoslKyNZ7tCkR5o2sgUehakVaOW+fePDW XBGL2rr3s1iRZv95NaFWqs2Uxmo+ACR+opFsjwKSzkAdQPvhqzqtMxVR 1W702yKOQL5XPws718vKi0k31bVihc52+lMIYJvH8kRvvQONP/Bqhg3j 6lukOTTGJqPfkSN6CU83j+TXdkcNdcRu3Iyvt/hxqkudPsnj6Isbt6px VrttQxjwxiM=";
+};

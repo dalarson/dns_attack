@@ -1,0 +1,335 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+./verify_hosts || exit 1
+
+function hostpre() { while read -r line; do echo "$(tput setaf "$1")$line$(tput sgr0)"; done; }
+
+function on() {
+    host="$1"
+    shift
+    echo "$(tput bold)HOST $host: executing $(tput smul)$*$(tput rmul)" | hostpre "$host"
+    ssh "root@10.4.9.$host" "$@" 2>&1 | hostpre "$host"
+}
+
+function message() {
+    fold -sw 76 | tr '\n' '\0' | xargs -0 ./box
+}
+
+function pause() {
+    ([[ "${SKIP_PAUSE:-0}" == 0 ]] && read -n 1 -s -r -p "Press any key to continue" && echo) || true
+}
+
+echo
+echo "████████╗███████╗ █████╗ ███╗   ███╗     █████╗ "
+echo "╚══██╔══╝██╔════╝██╔══██╗████╗ ████║    ██╔══██╗"
+echo "   ██║   █████╗  ███████║██╔████╔██║    ╚██████║"
+echo "   ██║   ██╔══╝  ██╔══██║██║╚██╔╝██║     ╚═══██║"
+echo "   ██║   ███████╗██║  ██║██║ ╚═╝ ██║     █████╔╝"
+echo "   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝     ╚════╝ "
+echo "                                                "
+echo "      ██████╗ ███████╗███╗   ███╗ ██████╗       "
+echo "      ██╔══██╗██╔════╝████╗ ████║██╔═══██╗      "
+echo "█████╗██║  ██║█████╗  ██╔████╔██║██║   ██║█████╗"
+echo "╚════╝██║  ██║██╔══╝  ██║╚██╔╝██║██║   ██║╚════╝"
+echo "      ██████╔╝███████╗██║ ╚═╝ ██║╚██████╔╝      "
+echo "      ╚═════╝ ╚══════╝╚═╝     ╚═╝ ╚═════╝       "
+echo
+
+# ------- RPZ Attacks --------
+echo
+echo "██████╗ ██████╗ ███████╗"
+echo "██╔══██╗██╔══██╗╚══███╔╝"
+echo "██████╔╝██████╔╝  ███╔╝ "
+echo "██╔══██╗██╔═══╝  ███╔╝  "
+echo "██║  ██║██║     ███████╗"
+echo "╚═╝  ╚═╝╚═╝     ╚══════╝"
+
+message <<EndOfMessage
+This attack utilizes the Response Policy Zones (RPZ) feature of Bind 9 to rewrite DNS responses. We have deployed several RPZ zone files into /etc/bind, each illustrating a different mode of attack. To switch between different attack modes, we create and alter symlinks to /etc/bind/attack.db and restart the bind9 service. We will now show all of the attacks and what happens from the clients perspective by running dig on the targeted domain (other-isp.zoo) and a non-targeted domain (bombast.zoo).
+EndOfMessage
+
+pause
+
+on 2 "/root/select-attack 2>&1 | grep usage"
+
+message <<EndOfMessage
+First let's show what it looks like when there's no attack running. This corresponds to an empty RPZ zone file.
+EndOfMessage
+
+on 2 /root/select-attack none
+on 2 cat /etc/bind/attack.db
+
+message <<EndOfMessage
+Bind doesn't like completely empty RPZ zone files, so we give it one that does nothing.
+EndOfMessage
+
+pause
+
+on 1 dig bombast.zoo
+on 1 dig other-isp.zoo
+
+message <<EndOfMessage
+This is what the output should like for unaltered requests and responses. We have the correct IP addresses for both servers. Let's curl just to make sure.
+EndOfMessage
+
+on 1 'curl -s bombast.zoo   2>&1'
+on 1 'curl -s other-isp.zoo 2>&1'
+
+pause
+
+message <<EndOfMessage
+If the ISP wishes to give clients an NXDOMAIN for other-isp.zoo (and all its subdomains), we merely have to add the appropriate record to the RPZ zone file.
+EndOfMessage
+
+on 2 /root/select-attack nxdomain
+on 2 cat /etc/bind/attack.db
+
+message <<EndOfMessage
+The RPZ format uses special codes to decide what to do with a given domain. The "." here means to return NXDOMAIN. Let's see what happens when we run dig now.
+EndOfMessage
+
+pause
+
+on 1 dig bombast.zoo
+message <<EndOfMessage
+This looks exactly the same as it did before (which is good) because it was not targeted in the RPZ file.
+EndOfMessage
+
+pause
+
+on 1 dig other-isp.zoo
+message <<EndOfMessage
+Instead of getting the correct address this time, we see we have a NXDOMAIN! 
+
+    ;; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN
+
+This means our attack worked as expected. Looking in the ADDITIONAL SECTION, we can see that the reported authoritative server came from our RPZ config.
+EndOfMessage
+
+pause
+
+message <<EndOfMessage
+There are several different actions we can take besides NXDOMAIN for a given RPZ trigger: 
+    NODATA: Returns an empty response (as opposed to NXDOMAIN) 
+    DROP: drops the request and doesn't respond, usually causing a timeout
+    TCP-ONLY: forces the client to make a request over TCP instead of UDP.
+              This is useful to combat DDOS attacks because it increases 
+              the overhead for each connection, and can be specified on a
+              per-domain basis.
+Additionally, there's no reason we cannot just return forged responses in the RPZ zone file. We refer to this as a 'lie' attack, and it is essentially equivalent to a DNS poisining attack.
+
+We don't use TCP-ONLY, because we aren't testing DOS scenarios, but let's walk through the NODATA, LIE and DROP attacks. 
+EndOfMessage
+
+pause
+
+on 2 /root/select-attack nodata
+on 2 cat /etc/bind/attack.db
+message <<EndOfMessage
+Here "*." means NODATA. Let's look at the dig output. From here forward we omit the dig output of bombast.zoo because it doesn't change.
+EndOfMessage
+
+pause
+
+on 1 dig other-isp.zoo
+message <<EndOfMessage
+This time, our status just says NOERROR and we get no A record back.
+
+    ;; ->>HEADER<<- opcode: QUERY, status: NOERROR
+
+Oddly, bind still gives us the SOA record in the ADDITIONAL SECTION. This is weird because it's definitely not NODATA, maybe it should be called SOMEDATA.
+EndOfMessage
+
+pause
+
+on 2 /root/select-attack lie
+on 2 cat /etc/bind/attack.db
+message <<EndOfMessage
+Instead of putting weird codes for things like NXDOMAIN or NODATA, we can put real records too! Here we are returning the IP address of our server instead of the real IP. This is quite a sinister thing to do as anybody that wants to look at other ISP websites would simply be redirected to ours instead. 
+EndOfMessage
+
+pause
+
+on 1 dig other-isp.zoo
+message <<EndOfMessage
+Looking at the ANSWER SECTION, we see that we now have the wrong address. 
+
+    other-isp.zoo.    5   IN  A   10.4.9.2
+
+If we curl other-isp.zoo, it will think everything is working and give us the wrong web page without complaint.
+EndOfMessage
+on 1 "curl -s other-isp.zoo"
+
+pause
+
+on 2 /root/select-attack drop
+on 2 cat /etc/bind/attack.db
+message <<EndOfMessage
+If the ISP wants to make people trying to load other ISP's websites to see some spinners in their browser, the could instead DROP the requests.
+
+We can use the special code ".rpz-drop" to do this. By default dig does a few retries, let's limit it to one and pull back the timeout so we aren't sitting here forever. 
+EndOfMessage
+pause
+
+on 1 dig other-isp.zoo +tries=1 +time=3 || true # we expect this to fail
+message <<EndOfMessage
+    ;; connection timed out; no servers could be reached
+
+Dig thinks it couldn't reach the server, but in this case the server just didn't want to talk back.
+EndOfMessage
+
+pause
+
+message <<EndOfMessage
+In these examples, we've only created RPZ rules that are based on domain names; however, it is possible to create rules based on other criteria. We can chose to create a rule triggering from any of the following sources:
+    - Domain Name
+    - IP Address/Subnet
+    - Client IP Address/Subnet
+    - Nameserver Domain/Address/Subnet
+EndOfMessage
+
+pause
+
+echo
+echo "██████╗ ███╗   ██╗███████╗███████╗███████╗ ██████╗"
+echo "██╔══██╗████╗  ██║██╔════╝██╔════╝██╔════╝██╔════╝"
+echo "██║  ██║██╔██╗ ██║███████╗███████╗█████╗  ██║     "
+echo "██║  ██║██║╚██╗██║╚════██║╚════██║██╔══╝  ██║     "
+echo "██████╔╝██║ ╚████║███████║███████║███████╗╚██████╗"
+echo "╚═════╝ ╚═╝  ╚═══╝╚══════╝╚══════╝╚══════╝ ╚═════╝"
+echo
+
+message <<EndOfMessage
+With more effort the ISP could've designed its RPZ records to make the LIE and NXDOMAIN attacks indistinguishable from a real authoritative response. They would merely have to adjust the SOA record to be more convincing. As an end client this thought is pretty scary, but there is hope. We have DNSSEC now.
+
+Let's get that setup.
+EndOfMessage
+
+pause
+
+on 6 dpkg --remove root-dns-setup
+on 6 dpkg --install root-dnssec.deb
+on 5 dpkg --remove zoo-dns-setup
+on 5 dpkg --install zoo-dnssec.deb
+on 1 dpkg --install client-resolver.deb
+
+message <<EndOfMessage
+A lot of things just happened - let's go through them.
+
+First we update the root DNS server to use DNSSEC. We've pre-populated the debian packages for both DNS servers to have functional DNSKEY and RRSIG and DS records. Take a look in the debian packages to see the details. 
+
+DNSSEC for the client doesn't come for free however - they must do some work to start using all this clever cryptography. We certainly can't utilize the ISP's caching resolver anymore, so we must setup our own. Luckily this is pretty simple to do. We install bind, and flip on the dnssec-validation flag. Bind ships with the real root DNSKEYs for the internet, but we have a different one, so we must modify /etc/bind/db.root to contain our root server's DNSKEY. We've prepoulated this key in the client as well via the debian package.
+
+Now that the client is configured, even if the ISP does an NXDOMAIN attack on other-isp.zoo, we can skip over its resolvers and the real response.
+EndOfMessage
+
+pause
+
+on 2 /root/select-attack nxdomain
+on 1 dig other-isp.zoo
+
+message <<EndOfMessage
+Boom. We've circumvented the ISP's RPZ blocking and we even have proof that the records are authentic because we have strict dnssec-validation! Dig also provides us with "ad" flag if the response is authenticated.
+    
+    ;; flags: qr rd ra ad; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1
+EndOfMessage
+
+pause
+
+message <<EndOfMessage
+We still have a problem though, since the ISP can see all of our cleartext UDP packets flying over port 53, they can just block them. This will result in identical behavior the DROP RPZ attack from the clients perspective.
+
+The ISP can block all DNS requests for other-isp.zoo with a single iptables command.
+EndOfMessage
+
+pause
+
+on 2 dpkg --install dns-iptables-block.deb
+
+message <<EndOfMessage
+The ISP is now blocking all UDP packets on port 53 that have literally any mention of other-isp.zoo.
+EndOfMessage
+
+pause
+
+message <<EndOfMessage
+Let's wipe the clients cache to make sure we don't just see the old response. 
+EndOfMessage
+on 1 rndc flush
+on 1 rndc reload
+pause
+
+message <<EndOfMessage
+Now when we dig, our packets never make it through. 
+EndOfMessage
+on 1 dig other-isp.zoo +tries=1 +time=3 @127.0.0.1 || true # We expect this to timeout
+
+pause
+
+message <<EndOfMessage
+We can confirm our rule caught the packets by looking at the iptable counters on the ISP router.
+EndOfMessage
+on 2 iptables -L -v
+
+pause
+
+message <<EndOfMessage
+As expected, our dns traffic going through the router for other domains still works. 
+EndOfMessage
+on 1 dig bombast.zoo @127.0.0.1 +short
+
+pause
+
+message <<EndOfMessage
+So this isn't fun, even if we are using our own resolver and strongly verifying DNSSEC, our ISP can still block whatever they want - they just can't lie to our faces.
+EndOfMessage
+
+pause
+
+echo
+echo "███████╗███████╗██╗  ██╗    ██╗   ██╗██████╗ ███╗   ██╗"
+echo "██╔════╝██╔════╝██║  ██║    ██║   ██║██╔══██╗████╗  ██║"
+echo "███████╗███████╗███████║    ██║   ██║██████╔╝██╔██╗ ██║"
+echo "╚════██║╚════██║██╔══██║    ╚██╗ ██╔╝██╔═══╝ ██║╚██╗██║"
+echo "███████║███████║██║  ██║     ╚████╔╝ ██║     ██║ ╚████║"
+echo "╚══════╝╚══════╝╚═╝  ╚═╝      ╚═══╝  ╚═╝     ╚═╝  ╚═══╝"
+echo
+
+message <<EndOfMessage
+In order to get around the ISP droping our packets, we need to encrypt our traffic somehow. We could use DNS over TLS to accomplish this, but support for this protocol isn't widespread yet. Using a VPN makes it so that the ISP cannot see what requests we are sending out, they can only see that we are doing something. Clearly blocking all of your client's traffic because they might be using other-isp.zoo is too drastic of a move for the ISP. 
+EndOfMessage
+
+pause
+
+message <<EndOfMessage
+We've created an extremely barebones VPN using an SSH tunnel and a corresponding debian package. Let's go ahead and install that. 
+
+Much earlier, during the deploy phase the VPN host was created on host 3 and configured to allow root connections from the clients ssh pubkey. 
+EndOfMessage
+on 1 dpkg --install vpn-client.deb
+
+pause
+
+message <<EndOfMessage
+We use ssh to open up tunnel interfaces and route traffic to the DNS servers through this tunnel.
+EndOfMessage
+
+on 1 ifup tun0 &
+sleep 5
+on 3 ifup tun0
+on 1 ip route
+
+message <<EndOfMessage
+Now all of our DNS traffic goes through this tunnel and pops out the other side on host 3. We apply NAT to the packets so the DNS servers will now see traffic coming from 10.4.9.3 instead of 10.4.9.1.
+
+Even though the ISP is blocking DNS packets referencing other-isp.zoo, we can now run a DNS query against that domain succesfully!
+EndOfMessage
+
+pause
+
+on 1 dig other-isp.zoo @127.0.0.1
+
+message <<EndOfMessage
+We have defeated bombast's attempts to censor other-isp.zoo and furthurmore, they can no longer see what sites we are visiting! However, whoever owns the VPN host can. 
+EndOfMessage

@@ -1,0 +1,7 @@
+$TTL 60
+@ IN SOA localhost. root.localhost. (2 3H 1H 1W 1H)
+  IN NS  localhost.
+
+; NODATA  returns empty response
+other-isp.zoo   CNAME *.
+*.other-isp.zoo CNAME *.

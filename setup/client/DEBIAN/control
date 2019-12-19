@@ -1,0 +1,7 @@
+Package: end-client-setup
+Version: 1.0-1
+Priority: optional
+Architecture: all
+Maintainer: @ben
+Depends: uml-utilities (=20070815-1.4), bind9 (= 1:9.10.3.dfsg.P4-8ubuntu1.15)
+Description: The end client

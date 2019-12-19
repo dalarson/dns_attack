@@ -1,0 +1,7 @@
+$TTL 1h
+.                   IN SOA root.net. fake-email.doesntexit.com. 2019111300 1800 900 604800 86400
+.                   IN NS  root.net.
+root.net.           IN A   10.4.9.6
+
+zoo.                IN NS  zoo-ns.net.
+zoo-ns.net.         IN A   10.4.9.5

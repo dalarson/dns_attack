@@ -1,0 +1,6 @@
+Package: vpn-client
+Version: 1.0-1
+Priority: optional
+Architecture: all
+Maintainer: @david
+Description: Package to help SSH_VPN setup 

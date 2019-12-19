@@ -1,0 +1,7 @@
+Package: zoo-dns-setup
+Version: 1.0-1
+Priority: optional
+Architecture: all
+Depends: knot (= 2.1.1-1build1)
+Maintainer: @ben
+Description: The .zoo DNS Server

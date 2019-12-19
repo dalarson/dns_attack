@@ -1,0 +1,7 @@
+$TTL 60
+@ IN SOA localhost. root.localhost. (2 3H 1H 1W 1H)
+  IN NS  localhost.
+
+; DROP  results in timeout from client
+other-isp.zoo   CNAME rpz-drop.
+*.other-isp.zoo CNAME rpz-drop.

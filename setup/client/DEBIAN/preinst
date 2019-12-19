@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euxo pipefail 
+
+ip route add 10.4.9.0/24 via 10.4.9.2 dev eth0
+
+echo 0 | tee /proc/sys/net/ipv4/conf/*/send_redirects
+echo 0 | tee /proc/sys/net/ipv4/conf/*/accept_redirects
+
+dpkg-divert --divert /etc/resolvconf/resolv.conf.d/base.original --rename /etc/resolvconf/resolv.conf.d/base
+dpkg-divert --divert /etc/resolvconf/interface-order.original --rename /etc/resolvconf/interface-order

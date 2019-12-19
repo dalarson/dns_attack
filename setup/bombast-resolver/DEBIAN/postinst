@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+ln -s /etc/bind/no-attack.db /etc/bind/attack.db
+
+systemctl enable web-server 
+systemctl start web-server
+
+systemctl enable bind9-resolvconf
+systemctl start bind9-resolvconf
+
+systemctl restart bind9
+
+

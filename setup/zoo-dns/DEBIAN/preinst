@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euxo pipefail 
+
+ip route add 10.4.9.1 via 10.4.9.2 dev eth0
+
+echo 0 | tee /proc/sys/net/ipv4/conf/*/send_redirects
+echo 0 | tee /proc/sys/net/ipv4/conf/*/accept_redirects
+
+dpkg-divert --divert /etc/knot/knot.conf.original --rename /etc/knot/knot.conf

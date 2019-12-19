@@ -1,0 +1,7 @@
+$TTL 60
+@ IN SOA localhost. root.localhost. (2 3H 1H 1W 1H)
+  IN NS  localhost.
+
+; LIE give a straight up wrong address 
+other-isp.zoo   A 10.4.9.2
+*.other-isp.zoo A 10.4.9.2

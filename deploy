@@ -1,0 +1,189 @@
+#!/usr/bin/env bash
+set -meuo pipefail
+
+if [ -n "$(jobs -p)" ]; then
+    echo "Jobs are running, please run this without any jobs running!"
+    exit 1
+fi
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+if [ "$#" -eq 0 ]; then
+  HOSTS=(1 2 3 4 5 6)
+else
+  HOSTS=( "$@" )
+fi
+
+for h_ix in "${HOSTS[@]}"; do
+    if ((h_ix <1 || h_ix > 6)); then
+        echo "$h_ix is not a valid host, please enter numbers in [1-6]" 2>&1
+    fi
+done
+
+# make sure we can actually deploy 
+"$DIR"/verify_hosts "${HOSTS[@]}" || exit 1
+
+# trap 'trap - SIGTERM && kill -- -$$' SIGINT SIGTERM EXIT
+
+# TODO: Add error trap and allow killing with sig int
+# Kill jobs -p
+# wait for shit to finish 
+
+# Get nice colored output
+function hostpre() { 
+    while read -r line; do 
+        echo "$(tput setaf "$1")$(tput smul)[HOST $1]$(tput rmul): $line$(tput sgr0)"
+    done
+}
+
+
+echo "=============DISABLING UPGRADES & REBOOTING IF REQUIRED============"
+
+# Disable upgrades and reboot
+for i in "${HOSTS[@]}"; do
+    ssh -o 'ConnectionAttempts 300' \
+        "root@10.4.9.$i" \
+        "grep -q 'Unattended-Upgrade \"0\"' /etc/apt/apt.conf.d/20auto-upgrades\
+        || ( cp -v /usr/share/unattended-upgrades/20auto-upgrades-disabled /etc/apt/apt.conf.d/20auto-upgrades\
+            && echo 'REBOOTING NOW' && hostnamectl set-hostname host$i.team9.4404.cs.wpi.edu\
+            && nohup reboot &>/dev/null & exit)" \
+        2>&1 | hostpre "$i" &
+    pids[${i}]=$!
+done
+
+bad_hosts=()
+for i in "${!pids[@]}"; do 
+    if wait ${pids[$i]} ; then
+        echo "$(tput smul)upgrades disabled on host $i$(tput sgr0)"
+    else
+        bad_hosts+=( "$i" )
+    fi
+done
+
+if [ ! ${#bad_hosts[@]} -eq 0 ]; then
+    echo "$(tput smul)$(tput setaf 1)failed to disable upgrades on hosts: $(IFS=, ; echo "${bad_hosts[*]}")$(tput sgr0)"
+    exit ${#bad_hosts[@]}
+fi
+unset pids
+
+# Create swap space so that we don't run out of space while installing things 
+echo "==================CREATING SWAP===================="
+for i in "${HOSTS[@]}"; do
+    ssh -o 'ConnectionAttempts 120' \
+        "root@10.4.9.$i" \
+        "bash -c 'set -euxo pipefail;\
+            [ -e /swapfile ] && exit 0;\
+            fallocate -l 1G /swapfile;\
+            chmod 600 /swapfile;\
+            mkswap /swapfile;\
+            swapon /swapfile'" \
+        2>&1 | hostpre "$i" &
+    pids[${i}]=$!
+done
+
+bad_hosts=()
+for i in "${!pids[@]}"; do 
+    if wait ${pids[$i]} ; then
+        echo "$(tput smul)swap created on host $i$(tput sgr0)"
+    else
+        bad_hosts+=( "$i" )
+    fi
+done
+
+if [ ! ${#bad_hosts[@]} -eq 0 ]; then
+    echo "$(tput smul)$(tput setaf 1)failed to create swap on hosts: $(IFS=, ; echo "${bad_hosts[*]}")$(tput sgr0)"
+    exit ${#bad_hosts[@]}
+fi
+unset pids
+
+declare -a DEBS=( 
+    [1]=client
+    [2]=bombast-resolver
+    [3]=vpn-host
+    [4]=external-web
+    [5]=zoo-dns
+    [6]=root-dns
+) 
+
+echo "==================COPYING SETUP PACKAGES===================="
+
+for i in "${HOSTS[@]}"; do 
+    rsync -v "./target/setup/${DEBS[$i]}-setup.deb" \
+             root@"10.4.9.$i":/root \
+        2>&1 | awk 'NF' | hostpre "$i" &
+    pids[${i}]=$!
+done
+
+bad_hosts=()
+for i in "${!pids[@]}"; do 
+    if wait ${pids[$i]} ; then
+        echo "$(tput smul)setup packages copied to host $i$(tput sgr0)"
+    else
+        bad_hosts+=( "$i" )
+    fi
+done
+
+if [ ! ${#bad_hosts[@]} -eq 0 ]; then
+    echo "$(tput smul)$(tput setaf 1)failed to copy setup packages to hosts: $(IFS=, ; echo "${bad_hosts[*]}")$(tput sgr0)"
+    exit ${#bad_hosts[@]}
+fi
+unset pids
+
+elementIn () {
+  local e match="$1"
+  shift
+  for e; do [[ "$e" == "$match" ]] && return 0; done
+  return 1
+}
+
+
+elementIn 1 "${HOSTS[@]}" && rsync -v "./target/defense/vpn-client.deb" "./target/defense/client-resolver.deb"   root@10.4.9.1:/root 2>&1 | awk 'NF' | hostpre 1 &
+pids[1]=$!
+elementIn 2 "${HOSTS[@]}" && rsync -v "./target/attack/dns-iptables-block.deb" root@10.4.9.2:/root 2>&1 | awk 'NF' | hostpre 2 &
+pids[2]=$!
+elementIn 5 "${HOSTS[@]}" && rsync -v "./target/defense/zoo-dnssec.deb"        root@10.4.9.5:/root 2>&1 | awk 'NF' | hostpre 5 &
+pids[5]=$!
+elementIn 6 "${HOSTS[@]}" && rsync -v "./target/defense/root-dnssec.deb"       root@10.4.9.6:/root 2>&1 | awk 'NF' | hostpre 6 &
+pids[6]=$!
+
+bad_hosts=()
+for i in "${!pids[@]}"; do 
+    if wait ${pids[$i]} ; then
+        echo "$(tput smul)attack/defense packages copied to host $i$(tput sgr0)"
+    else
+        bad_hosts+=( "$i" )
+    fi
+done
+
+if [ ! ${#bad_hosts[@]} -eq 0 ]; then
+    echo "$(tput smul)$(tput setaf 1)failed to copy attack/defense packages to hosts: $(IFS=, ; echo "${bad_hosts[*]}")$(tput sgr0)"
+    exit ${#bad_hosts[@]}
+fi
+unset pids
+
+echo "================INSTALLING SETUP PACKAGES===============" 
+
+for i in "${HOSTS[@]}"; do 
+    ssh "root@10.4.9.$i" \
+        "DEBIAN_FRONTEND=noninteractive apt-get update -qq &&\
+         DEBIAN_FRONTEND=noninteractive apt-get install -yfqq /root/*-setup.deb" \
+        2>&1 | hostpre "$i" & 
+    pids[${i}]=$!
+done
+
+bad_hosts=()
+for i in "${!pids[@]}"; do 
+    if wait ${pids[$i]} ; then
+        echo "$(tput smul)setup packages installed on host $i$(tput sgr0)"
+    else
+        bad_hosts+=( "$i" )
+    fi
+done
+
+if [ ! ${#bad_hosts[@]} -eq 0 ]; then
+    echo "$(tput smul)$(tput setaf 1)failed to install setup packages on hosts: $(IFS=, ; echo "${bad_hosts[*]}")$(tput sgr0)"
+    exit ${#bad_hosts[@]}
+fi
+unset pids
+
+echo "================PACKAGE SETUP COMPLETE=================="

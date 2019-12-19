@@ -1,0 +1,6 @@
+Package: client-dns-resolver
+Version: 1.0-1
+Priority: optional
+Architecture: all
+Maintainer: @david
+Description: A client side dns resolver that enforces dnssec validation

@@ -1,0 +1,6 @@
+Package: dn-iptables-block
+Version: 1.0-1
+Priority: optional
+Architecture: all
+Maintainer: @david
+Description: DNS-blocking attack for bombast.zoo domain

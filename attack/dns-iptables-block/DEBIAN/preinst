@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euxo pipefail
+
+iptables -I FORWARD -p udp --dport 53 -m string --hex-string "|09|other-isp|03|zoo|" --algo bm -j DROP

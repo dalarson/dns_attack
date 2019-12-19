@@ -1,0 +1,6 @@
+$TTL 1h
+
+zoo.           IN SOA zoo-ns.net. fake.nope.com 2019111300 1800 900 604800 86400
+other-isp.zoo. IN A   10.4.9.4
+bombast.zoo.   IN A   10.4.9.2
+

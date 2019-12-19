@@ -1,0 +1,6 @@
+Package: vpn-host
+Version: 1.0-1
+Priority: optional
+Architecture: all
+Maintainer: @david
+Description: Package to help setup SSH_VPN

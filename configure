@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail 
+
+echo "Ensuring you have all the required tools..."
+echo
+dpkg-deb --version || echo "$(tput setaf 1)WARNING: You will not be able to build the packages without dpkg!$(tput sgr0)"
+echo
+ssh -V
+echo
+rsync --version

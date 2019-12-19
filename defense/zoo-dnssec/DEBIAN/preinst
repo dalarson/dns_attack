@@ -1,0 +1,4 @@
+#!/usr/bin/env bash 
+set -euxo pipefail 
+
+dpkg-divert --divert /etc/knot/knot.conf.no-dnssec --rename /etc/knot/knot.conf

@@ -1,0 +1,27 @@
+options {
+	directory "/var/cache/bind";
+
+	//========================================================================
+	// If BIND logs error messages about the root key being expired,
+	// you will need to update your keys.  See https://www.isc.org/bind-keys
+	//========================================================================
+	dnssec-validation false;
+
+	auth-nxdomain no;    # conform to RFC1035
+	listen-on-v6 { any; };
+
+	// hide version number from clients for security reasons.
+	version "not currently available";
+
+	// optional - BIND default behavior is recursion
+	recursion yes;
+
+	// provide recursion service to trusted clients only
+	allow-recursion { 127.0.0.1; 10.4.9.0/24; };
+
+	// enable the query log
+	querylog yes;
+
+	empty-zones-enable	yes;
+	response-policy { zone "rpz"; }; // TODO: This might piss off bind! Maybe allow empty ones? 
+};

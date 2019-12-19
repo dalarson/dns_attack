@@ -1,0 +1,7 @@
+Package: bombast-resolver-setup
+Version: 1.0-1
+Priority: optional
+Architecture: all
+Depends: bind9 (= 1:9.10.3.dfsg.P4-8ubuntu1.15)
+Maintainer: @david
+Description: The Bombast DNS resolver

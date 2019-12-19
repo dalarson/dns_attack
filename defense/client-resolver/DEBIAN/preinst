@@ -1,0 +1,6 @@
+#!/usr/bin/env bash 
+set -euxo pipefail
+
+dpkg-divert --divert /etc/resolvconf/resolv.conf.d/head.original --rename /etc/resolvconf/resolv.conf.d/head
+
+dpkg-divert --divert /etc/bind/db.root.original --rename /etc/bind/db.root
